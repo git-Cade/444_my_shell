@@ -77,60 +77,7 @@ int main(int argc, char* argv[]) {
 		line[strlen(line)] = '\n'; //terminate with new line
 		tokens = tokenize(line);
 
-
-		// Print out all tokens
-		// TODO: Check if they are &, &&, or &&&
-
-		// 0 = default fork, exec, wait
-		// 1 (&) = fork, exec (single process only)
-		// 2 (&&) = executed in sequence with wait
-		// 3 (&&&) = executed in parellel in foreground
-		int logic_option = 0;
-		int index = 0;
-		while(tokens[index]) {
-			if(tokens[index][2] == '&')
-				logic_option = 3;
-			else if(tokens[index][1] == '&')
-				logic_option = 2;
-			else if(tokens[index][0] == '&')
-				logic_option = 1;
-			index++;
-		}
-		printf("Logic option chosen: %i\n", logic_option);
-
-		//TODO Insert logic_option dependent ...logic
-		int base = 0;
-		int offset = 0;
-		while(tokens[base]) { 
-			while(tokens[base + offset]) {
-				printf("%s\n", tokens[base + offset]);
-				offset++;
-			}
-			base = base + offset + 1;
-			offset = 0; // Reset offset
-			printf("\n");
-		}
-
-
-		//				if(*tokens[base + offset] == '&')
-		//			printf("Forking and starting %s in the background\n", tokens[base + offset]);
-		//		else if(*tokens[base + offset] == '&&')
-		//			printf("Running sequentially\n");
-		//		else if(*tokens[base + offset] == '&&&')
-		//			printf("Running in parallel\n");
-
-
-		//for(i=0;i < sizeof(tokens)/sizeof(tokens[0]); i++) {
-		//	printf("%s\n", tokens[i]);
-		//}
-		//char *end_tokens = tokens[sizeof(tokens)/4];
-		//printf("%s\n", tokens[0]);
-		//printf("%s\n", tokens[1]);
-		//char *end_tokens = tokens[sizeof(tokens)/sizeof(tokens[0])];
-		//if(end_tokens)
-		//	printf("%s\n", end_tokens);
-
-		char* usr_bin_str = malloc(1000);
+		char* usr_bin_str = (char *)malloc(1000); // Creates a string to hold the bin directory + command file name
 		strcpy(usr_bin_str, "/usr/bin/");
 
 		if (tokens[0] == NULL) { // No input
@@ -142,15 +89,73 @@ int main(int argc, char* argv[]) {
 			char cwd[PATH_MAX];
    			getcwd(cwd, sizeof(cwd));
    			printf("Current Working Directory: %s\n", cwd);
-		} else if (access(strcat(usr_bin_str, tokens[0]), F_OK)) { // If command doesn't exist
-			printf("Command not found\n");
-		//} else if (strlen(line) > 1) { // Any other basic command
+   		} else if (!strcmp(tokens[0], "exit") || !strcmp(tokens[0], "Exit") || !strcmp(tokens[0], "EXIT")) { // If exit
+   			exit(EXIT_SUCCESS); // TODO, kill zombie processes, make sure all memory is unallocated
 		} else {
-			int ppid = fork();
-			if (!ppid) {
-				execvp(tokens[0], tokens);  
-			} else {
-				wait(NULL); // Waits for child process to finish
+			// 0 = default fork, exec, wait
+			// 1 (&) = fork, exec, run in background (single process only)
+			// 2 (&&) = executed in sequence with wait
+			// 3 (&&&) = executed in parellel in foreground
+			int logic_option = 0;
+			int index = 0;
+			while(tokens[index]) {
+				if(tokens[index][2] == '&')
+					logic_option = 3;
+				else if(tokens[index][1] == '&')
+					logic_option = 2;
+				else if(tokens[index][0] == '&')
+					logic_option = 1;
+				index++;
+			}
+			printf("Logic option chosen: %i\n", logic_option);
+
+			// Command Execution
+			
+			// Used to keep track the current base command index, while the loop finds the parameters
+			int base = 0; 
+			// Keeps track of how far we've parsed the parameters from the base command. Terminated by a logic specifier (&,&&,&&&)
+			int offset = 0;
+			while(tokens[base]) { // While there are still tokens to check
+
+				char **temp_command = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *)); // holds command splice from tokens
+
+				while(tokens[base + offset]) {
+					if(tokens[base + offset] && tokens[base + offset][0] != '&') // If we haven't hit a logic specifier
+						temp_command[offset] = tokens[base + offset]; // "Append" the current token to the command we're building
+ 					if(!tokens[base + offset + 1] || tokens[base + offset][0] == '&') { // If the token is logic identifier or next token is end
+
+						// Execute Command logic 
+						if(access(strcat(usr_bin_str, tokens[base]), F_OK)) {
+							printf("Command not found\n");
+						} else if(logic_option == 0) { // 0 = default fork, exec, wait
+							if (!fork())
+								execvp(temp_command[0], temp_command);
+							else
+								wait(NULL);
+						} else if(logic_option == 1) {  // 1 (&) = fork, exec, run in background (single process only)
+							if (!fork())
+								execvp(temp_command[0], temp_command);
+						} else if(logic_option == 2) { // 2 (&&) = executed in sequence with wait
+							if (!fork())
+								execvp(temp_command[0], temp_command);
+							wait(NULL); // Waits for child process to finish
+						} else if(logic_option == 3) { // 3 (&&&) = executed in parellel in foreground
+							// TODO Reap these children
+							if (!fork())
+								execvp(temp_command[0], temp_command);
+						}
+
+						break; // Command executed, exit this loop
+					}
+
+					offset++; // Increment offset
+				}
+				base = base + offset + 1; // Get new base. +1 to traverse over the &,&&, or &&&
+				offset = 0; // Reset offset
+
+				free(usr_bin_str);
+				usr_bin_str = (char *)malloc(1000); // Reallocates space for usr bin path plus file
+				strcpy(usr_bin_str, "/usr/bin/"); // Sets new space to "/usr/bin/"
 			}
 		}
 
