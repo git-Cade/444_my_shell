@@ -77,6 +77,59 @@ int main(int argc, char* argv[]) {
 		line[strlen(line)] = '\n'; //terminate with new line
 		tokens = tokenize(line);
 
+
+		// Print out all tokens
+		// TODO: Check if they are &, &&, or &&&
+
+		// 0 = default fork, exec, wait
+		// 1 (&) = fork, exec (single process only)
+		// 2 (&&) = executed in sequence with wait
+		// 3 (&&&) = executed in parellel in foreground
+		int logic_option = 0;
+		int index = 0;
+		while(tokens[index]) {
+			if(tokens[index][2] == '&')
+				logic_option = 3;
+			else if(tokens[index][1] == '&')
+				logic_option = 2;
+			else if(tokens[index][0] == '&')
+				logic_option = 1;
+			index++;
+		}
+		printf("Logic option chosen: %i\n", logic_option);
+
+		//TODO Insert logic_option dependent ...logic
+		int base = 0;
+		int offset = 0;
+		while(tokens[base]) { 
+			while(tokens[base + offset]) {
+				printf("%s\n", tokens[base + offset]);
+				offset++;
+			}
+			base = base + offset + 1;
+			offset = 0; // Reset offset
+			printf("\n");
+		}
+
+
+		//				if(*tokens[base + offset] == '&')
+		//			printf("Forking and starting %s in the background\n", tokens[base + offset]);
+		//		else if(*tokens[base + offset] == '&&')
+		//			printf("Running sequentially\n");
+		//		else if(*tokens[base + offset] == '&&&')
+		//			printf("Running in parallel\n");
+
+
+		//for(i=0;i < sizeof(tokens)/sizeof(tokens[0]); i++) {
+		//	printf("%s\n", tokens[i]);
+		//}
+		//char *end_tokens = tokens[sizeof(tokens)/4];
+		//printf("%s\n", tokens[0]);
+		//printf("%s\n", tokens[1]);
+		//char *end_tokens = tokens[sizeof(tokens)/sizeof(tokens[0])];
+		//if(end_tokens)
+		//	printf("%s\n", end_tokens);
+
 		char* usr_bin_str = malloc(1000);
 		strcpy(usr_bin_str, "/usr/bin/");
 
@@ -110,3 +163,4 @@ int main(int argc, char* argv[]) {
 	}
 	return 0;
 }
+
