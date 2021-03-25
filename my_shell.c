@@ -1,6 +1,4 @@
 // Cade Lilley
-// Lab03A - Simple shell
-// Leaves no child processes behind
 
 #include <stdio.h>
 #include <sys/types.h>
